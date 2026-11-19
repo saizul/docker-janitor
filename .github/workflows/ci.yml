@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+      - name: Ruff
+        run: |
+          ruff check .
+          ruff format --check .
+
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+      - name: Test
+        run: pytest
+      - name: CLI smoke test
+        run: |
+          docker-janitor --version
+          docker-janitor -c examples/docker-janitor.yaml check-config
+
+  docker:
+    name: Docker image and real Docker Engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t docker-janitor:ci .
+      - run: docker run --rm docker-janitor:ci --version
+      - name: Create test objects (only these carry janitor.ci=true)
+        run: |
+          docker pull alpine:3.20
+          docker create --name jci-remove --label janitor.ci=true alpine:3.20 true
+          docker create --name jci-keep --label janitor.ci=true --label janitor.keep=true alpine:3.20 true
+          docker network create --label janitor.ci=true jci-net
+          docker volume create --label janitor.ci=true jci-vol
+          cat > "$RUNNER_TEMP/ci.yaml" <<'YAML'
+          protect:
+            only_labels: ["janitor.ci=true"]
+          containers: {older_than: 0s}
+          images: {enabled: false}
+          networks: {older_than: 0s}
+          volumes: {enabled: true, older_than: 0s, anonymous_only: false}
+          build_cache: {enabled: false}
+          YAML
+      - name: Disk usage report
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock docker-janitor:ci df
+      - name: Dry run removes nothing
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$RUNNER_TEMP/ci.yaml:/config/config.yaml:ro" docker-janitor:ci plan --show-kept
+          docker inspect jci-remove > /dev/null
+          docker network inspect jci-net > /dev/null
+          docker volume inspect jci-vol > /dev/null
+      - name: First --execute run is still a dry run
+        run: |
+          docker volume create jci-state
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v jci-state:/data \
+            -v "$RUNNER_TEMP/ci.yaml:/config/config.yaml:ro" docker-janitor:ci run --execute | tee "$RUNNER_TEMP/first.txt"
+          grep -q "First run on this host" "$RUNNER_TEMP/first.txt"
+          docker inspect jci-remove > /dev/null
+      - name: Second run deletes only unprotected test objects
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v jci-state:/data \
+            -v "$RUNNER_TEMP/ci.yaml:/config/config.yaml:ro" docker-janitor:ci run --execute
+          if docker inspect jci-remove > /dev/null 2>&1; then echo "jci-remove should be gone"; exit 1; fi
+          if docker network inspect jci-net > /dev/null 2>&1; then echo "jci-net should be gone"; exit 1; fi
+          if docker volume inspect jci-vol > /dev/null 2>&1; then echo "jci-vol should be gone"; exit 1; fi
+          docker inspect jci-keep > /dev/null
+          docker volume inspect jci-state > /dev/null
+      - name: Daemon becomes healthy
+        run: |
+          docker run -d --name janitor -v /var/run/docker.sock:/var/run/docker.sock docker-janitor:ci daemon
+          for i in $(seq 1 20); do
+            docker exec janitor docker-janitor healthcheck && exit 0
+            sleep 1
+          done
+          docker logs janitor
+          exit 1

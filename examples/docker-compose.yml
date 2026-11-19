@@ -1,0 +1,22 @@
+# docker-janitor as a long-running service. Starts in DRY RUN mode: read the logs
+# (docker compose logs docker-janitor) and set DOCKER_JANITOR_DRY_RUN=false when the plan looks right.
+services:
+  docker-janitor:
+    image: ghcr.io/saizul/docker-janitor:latest
+    restart: unless-stopped
+    environment:
+      DOCKER_JANITOR_DRY_RUN: "true"
+      DOCKER_JANITOR_SCHEDULE: "30 3 * * *"
+      # DOCKER_JANITOR_HEALTHCHECK_URL: https://hc-ping.com/your-uuid
+      TZ: Europe/Berlin
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-janitor.yaml:/config/config.yaml:ro
+      - janitor-state:/data
+    labels:
+      janitor.keep: "true"
+
+volumes:
+  janitor-state:
+    labels:
+      janitor.keep: "true"

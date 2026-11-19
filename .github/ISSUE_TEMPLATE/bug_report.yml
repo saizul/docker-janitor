@@ -1,0 +1,41 @@
+name: Bug report
+description: docker-janitor planned or removed something it should not have, kept something it should remove, or crashed
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **If docker-janitor removed something that it should have protected, please say so in the title.**
+        Those reports are handled first. Never paste health check URLs or registry credentials.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: The output of `docker-janitor plan --show-kept` (or the run log) for the objects involved.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: inspect
+    attributes:
+      label: docker inspect (redacted)
+      description: State, Created, Labels and RestartPolicy of the container, image, volume or network.
+      render: json
+  - type: textarea
+    id: config
+    attributes:
+      label: Config (redacted)
+      render: yaml
+  - type: input
+    id: version
+    attributes:
+      label: Versions
+      description: "docker-janitor --version and docker version --format '{{.Server.Version}}'"
+    validations:
+      required: true

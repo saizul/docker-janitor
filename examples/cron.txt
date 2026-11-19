@@ -1,0 +1,3 @@
+# Without the daemon: run docker-janitor from the host's crontab (crontab -e).
+# The first run is a dry run; later runs delete because of --execute.
+30 3 * * * docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v docker-janitor-state:/data ghcr.io/saizul/docker-janitor run --execute >> /var/log/docker-janitor.log 2>&1

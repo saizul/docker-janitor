@@ -1,0 +1,46 @@
+# docker-janitor example configuration. Every value shown here is optional.
+# Safe defaults: dry run, volumes untouched, janitor.keep=true always respected.
+
+dry_run: true              # set to false (or pass --execute) once the plan looks right
+first_run_dry_run: true    # the first run on a host is always a dry run, even with --execute
+max_removals: 100          # safety stop: abort a run that would remove more objects (0 = no limit)
+state_file: /data/state.json
+schedule: "30 3 * * *"     # cron (minute hour day month weekday), local time; @daily also works
+
+protect:
+  # janitor.keep=true is always protected, even if you leave it out here.
+  labels: ["janitor.keep=true", "com.example.tier=database"]
+  # only_labels: ["com.example.ephemeral=true"]   # allowlist: only touch objects with one of these
+  names: ["postgres:*", "*-backup", "traefik*"]  # globs on container, volume, network names and image tags
+
+containers:
+  enabled: true
+  older_than: 7d                  # time since the container stopped
+  statuses: [exited, created, dead]
+  keep_with_restart_policy: true  # a stopped container with restart: always/unless-stopped is kept
+
+images:
+  enabled: true
+  dangling_older_than: 1d         # untagged layers left behind by rebuilds (false = never)
+  unused_older_than: 14d          # tagged images no container uses (false = never)
+  keep_latest: 3                  # always keep the 3 newest images of every repository
+
+networks:
+  enabled: true
+  older_than: 7d
+
+volumes:
+  enabled: false                  # volumes hold data: opt in deliberately
+  older_than: 30d
+  anonymous_only: true            # only volumes with a random 64-character name
+
+build_cache:
+  enabled: true
+  older_than: 7d
+  keep_storage: 10GB              # keep up to this much cache
+  all: false                      # true also prunes shared (internal) cache records
+
+healthcheck:
+  # url: https://hc-ping.com/your-uuid      # healthchecks.io: /start, success and /fail pings
+  style: healthchecks                       # or "plain" for Uptime Kuma push URLs
+  send_report: true                         # POST the plan/result text with the success ping
