@@ -142,3 +142,32 @@ def test_table_and_plan_formatting(fake):
     assert "Summary: 1 container(s), 1 image(s), 0 network(s), 0 volume(s)" in text
     empty = Planner(FakeClient(), parse_config({"build_cache": False})).build()
     assert "Nothing to remove" in report.format_plan(empty, dry_run=False)
+
+
+def test_only_limits_kinds(fake, capsys):
+    assert cli.main(["plan", "--json", "--only", "images"]) == 0
+    summary = json.loads(capsys.readouterr().out)["plan"]["summary"]
+    assert summary["images"] == 1 and summary["containers"] == 0
+    assert cli.main(["run", "--execute", "--skip-first-run-guard", "--only", "containers"]) == 0
+    assert len(fake.removed) == 1
+
+
+def test_only_never_enables_a_disabled_kind(fake, tmp_path, capsys, caplog):
+    (tmp_path / "docker-janitor.yaml").write_text("images: {enabled: false}\n", encoding="utf-8")
+    assert cli.main(["plan", "--json", "--only", "images,containers"]) == 0
+    summary = json.loads(capsys.readouterr().out)["plan"]["summary"]
+    assert summary["images"] == 0 and summary["containers"] == 1
+    assert "images is disabled in the config" in caplog.text
+
+
+@pytest.mark.parametrize(("value", "kinds"), [("build-cache", ["build_cache"]), (" Images, images ,", ["images"])])
+def test_parse_only(value, kinds):
+    assert cli.parse_only(value) == kinds
+
+
+@pytest.mark.parametrize("value", ["", ",", "pods"])
+def test_only_rejects_unknown_kinds(fake, capsys, value):
+    with pytest.raises(SystemExit) as info:
+        cli.main(["plan", "--only", value])
+    assert info.value.code == 2
+    assert "--only" in capsys.readouterr().err

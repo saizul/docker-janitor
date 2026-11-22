@@ -21,6 +21,7 @@ from docker_janitor.config import Config, ConfigError, load_config
 from docker_janitor.job import EXIT_ERROR, Daemon, heartbeat_age, run_once
 
 DEFAULT_CONFIG_PATHS = ("docker-janitor.yaml", "/config/config.yaml")
+KINDS = ("containers", "images", "networks", "volumes", "build_cache")
 HEARTBEAT_ENV = "DOCKER_JANITOR_HEARTBEAT"
 
 log = logging.getLogger("docker_janitor")
@@ -47,10 +48,38 @@ def config_path(args: argparse.Namespace) -> str | None:
     return None
 
 
+def parse_only(value: str) -> list[str]:
+    """Parse ``--only images,volumes`` into a list of policy names."""
+    kinds = []
+    for raw in value.split(","):
+        kind = raw.strip().lower().replace("-", "_")
+        if not kind:
+            continue
+        if kind not in KINDS:
+            raise argparse.ArgumentTypeError(f"unknown kind {raw.strip()!r} (choose from {', '.join(KINDS)})")
+        if kind not in kinds:
+            kinds.append(kind)
+    if not kinds:
+        raise argparse.ArgumentTypeError(f"expected a comma-separated list of {', '.join(KINDS)}")
+    return kinds
+
+
+def restrict_kinds(config: Config, only: list[str]) -> None:
+    """Disable every policy not listed in ``only``. Never enables a policy the config disables."""
+    for kind in KINDS:
+        policy = getattr(config, kind)
+        if kind not in only:
+            policy.enabled = False
+        elif not policy.enabled:
+            log.warning("--only %s: %s is disabled in the config and stays disabled", kind, kind)
+
+
 def _load(args: argparse.Namespace) -> Config:
     config = load_config(config_path(args))
     if getattr(args, "max_removals", None) is not None:
         config.max_removals = args.max_removals
+    if getattr(args, "only", None):
+        restrict_kinds(config, args.only)
     return config
 
 
@@ -162,9 +191,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--log-level", default=os.environ.get("DOCKER_JANITOR_LOG_LEVEL", "info"))
     sub = parser.add_subparsers(dest="command", required=True)
 
+    def only_flag(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--only",
+            type=parse_only,
+            metavar="KINDS",
+            help="limit the run to these kinds, comma-separated: " + ", ".join(KINDS),
+        )
+
     def output_flags(p: argparse.ArgumentParser) -> None:
         p.add_argument("--json", action="store_true", help="print the plan and result as JSON")
         p.add_argument("--show-kept", action="store_true", help="also list kept objects and why")
+        only_flag(p)
 
     def mode_flags(p: argparse.ArgumentParser) -> None:
         group = p.add_mutually_exclusive_group()
@@ -188,6 +226,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode_flags(p)
     p.add_argument("--run-now", action="store_true", help="also run once at startup")
     p.add_argument("--show-kept", action="store_true", help="list kept objects in each report")
+    only_flag(p)
     p.set_defaults(func=cmd_daemon)
 
     p = sub.add_parser("df", help="disk usage report, like docker system df")

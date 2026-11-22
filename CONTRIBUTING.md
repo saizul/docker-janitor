@@ -26,20 +26,18 @@ Comment on an issue before you start so nobody else picks the same one.
 
 Each of these is self-contained and touches one or two files.
 
-1. **`--only` flag.** `docker-janitor plan --only images,volumes` limits a run to some kinds
-   without editing the config. (`cli.py`, tests)
-2. **Markdown report.** `--format markdown` for pasting a plan into an issue or a chat.
+1. **Markdown report.** `--format markdown` for pasting a plan into an issue or a chat.
    (`report.py`, `cli.py`, tests)
-3. **Keep failed containers longer.** `containers.failed_older_than: 14d` for containers that
+2. **Keep failed containers longer.** `containers.failed_older_than: 14d` for containers that
    exited with a non-zero code, so there is time to read their logs. (`config.py`, `planner.py`, tests)
-4. **Protect Compose projects.** `protect.compose_projects: [prod]` keeps every object with the
+3. **Protect Compose projects.** `protect.compose_projects: [prod]` keeps every object with the
    label `com.docker.compose.project=prod`. (`config.py`, `planner.py`, tests, README)
-5. **Exclude images by repository.** `images.keep_repositories: ["ghcr.io/acme/*"]` keeps all tags
+4. **Exclude images by repository.** `images.keep_repositories: ["ghcr.io/acme/*"]` keeps all tags
    of matching repositories regardless of age. (`config.py`, `planner.py`, tests)
-6. **Slack/Telegram summary.** Optional `notify.webhook_url` that posts the result summary after
+5. **Slack/Telegram summary.** Optional `notify.webhook_url` that posts the result summary after
    each run, without new dependencies (urllib). (`job.py`, tests)
-7. **`df --top 10`.** List the largest images and volumes. (`report.py`, `cli.py`, tests)
-8. **Prometheus textfile output.** Write `docker_janitor_removed_total` and
+6. **`df --top 10`.** List the largest images and volumes. (`report.py`, `cli.py`, tests)
+7. **Prometheus textfile output.** Write `docker_janitor_removed_total` and
    `docker_janitor_reclaimed_bytes` to a file for node_exporter's textfile collector. (`job.py`, tests)
 
 ## Development setup

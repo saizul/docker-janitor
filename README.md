@@ -203,15 +203,22 @@ Environment overrides (handy with `docker run -e`): `DOCKER_JANITOR_DRY_RUN`,
 docker-janitor [-c CONFIG] [--log-level LEVEL] COMMAND
 
 plan           show what would be removed and why; never deletes
-               --show-kept, --json
+               --show-kept, --json, --only KINDS
 run            one cleanup run (a dry run unless --execute or dry_run: false)
-               --execute | --dry-run, --max-removals N, --skip-first-run-guard, --show-kept, --json
+               --execute | --dry-run, --max-removals N, --skip-first-run-guard, --show-kept, --json,
+               --only KINDS
 daemon         run on the schedule (default command of the image)
-               --execute | --dry-run, --run-now, --show-kept
+               --execute | --dry-run, --run-now, --show-kept, --only KINDS
 df             disk usage by type with reclaimable space (--json)
 check-config   validate and print the effective config and the next 3 run times
 healthcheck    exit 0 if the daemon heartbeat is fresh (used by the image HEALTHCHECK)
 ```
+
+`--only` limits a run to some kinds without editing the config, for example
+`docker-janitor run --execute --only images,build_cache`. Kinds are `containers`, `images`,
+`networks`, `volumes` and `build_cache` (`build-cache` works too). It only narrows a run: a
+kind disabled in the config (such as `volumes`, which is off by default) stays disabled and a
+warning is logged.
 
 Exit codes: `0` success (also when Docker refused a removal; refusals are listed),
 `1` cannot reach Docker, `2` configuration error, `3` safety stop (`max_removals`).
@@ -273,7 +280,6 @@ instance per node. Kubernetes nodes manage images with the kubelet's own garbage
 
 Ideas are tracked as issues; the ones marked **good first issue** are a great start.
 
-- `--only images,volumes` to limit a run (**good first issue**)
 - Protect whole Compose projects by name (**good first issue**)
 - Keep failed containers longer than successful ones (**good first issue**)
 - Markdown report and a run summary to Slack or Telegram (**good first issue**)
