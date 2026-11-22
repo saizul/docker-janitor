@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `--only KINDS` for `plan`, `run` and `daemon` limits a run to some of `containers`, `images`,
+  `networks`, `volumes` and `build_cache` without editing the config. It never enables a kind
+  the config disables.
+
 ## [0.1.0] - 2026-11-19
 
 ### Added
