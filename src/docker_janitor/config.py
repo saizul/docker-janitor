@@ -38,6 +38,7 @@ class ContainerPolicy:
     older_than: float = 7 * 86400
     statuses: list[str] = field(default_factory=lambda: list(REMOVABLE_STATUSES))
     keep_with_restart_policy: bool = True
+    failed_older_than: float | None = None  # None = same as older_than
 
 
 @dataclass
@@ -192,7 +193,9 @@ def parse_config(data: Any) -> Config:
     )
 
     raw = _section(data, "containers")
-    _check_keys("containers", raw, {"enabled", "older_than", "statuses", "keep_with_restart_policy"})
+    _check_keys(
+        "containers", raw, {"enabled", "older_than", "statuses", "keep_with_restart_policy", "failed_older_than"}
+    )
     c = cfg.containers
     c.enabled = _bool("containers", "enabled", raw.get("enabled", c.enabled))
     if "older_than" in raw:
@@ -209,6 +212,8 @@ def parse_config(data: Any) -> Config:
     c.keep_with_restart_policy = _bool(
         "containers", "keep_with_restart_policy", raw.get("keep_with_restart_policy", c.keep_with_restart_policy)
     )
+    if "failed_older_than" in raw:
+        c.failed_older_than = _duration("containers", "failed_older_than", raw["failed_older_than"], optional=True)
 
     raw = _section(data, "images")
     _check_keys("images", raw, {"enabled", "dangling_older_than", "unused_older_than", "keep_latest"})

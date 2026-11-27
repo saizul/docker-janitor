@@ -16,6 +16,7 @@ def test_defaults_are_safe():
     assert cfg.protect.labels == [KEEP_LABEL]
     assert cfg.containers.statuses == ["exited", "created", "dead"]
     assert cfg.containers.keep_with_restart_policy is True
+    assert cfg.containers.failed_older_than is None
     assert cfg.images.keep_latest == 3
     assert cfg.max_removals == 100
 
@@ -45,6 +46,7 @@ def test_sections_accept_booleans():
         ({"containers": {"statuses": ["running"]}}, "never removed"),
         ({"containers": {"statuses": []}}, "never removed"),
         ({"containers": {"older_than": "soon"}}, "older_than"),
+        ({"containers": {"failed_older_than": "later"}}, "failed_older_than"),
         ({"images": {"keep_latest": -1}}, "keep_latest"),
         ({"images": {"colour": 1}}, "unknown key"),
         ({"build_cache": {"keep_storage": "huge"}}, "keep_storage"),
@@ -88,3 +90,9 @@ def test_load_config_errors(tmp_path):
     with pytest.raises(ConfigError, match="invalid YAML"):
         load_config(bad)
     assert load_config(None, env={}).dry_run is True
+
+
+def test_failed_older_than():
+    assert parse_config({"containers": {"failed_older_than": "30d"}}).containers.failed_older_than == 30 * 86400
+    assert parse_config({"containers": {"failed_older_than": False}}).containers.failed_older_than is None
+    assert parse_config({"containers": {"failed_older_than": None}}).containers.failed_older_than is None

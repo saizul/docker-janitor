@@ -54,6 +54,33 @@ def test_containers_protected_by_label_name_and_restart_policy(client):
     assert "stopped-service" in names(plan.remove)
 
 
+def test_failed_containers_can_be_kept_longer(client):
+    client.add_container("ok-old", finished=ago(days=10))
+    client.add_container("crashed-old", finished=ago(days=10), exit_code=1)
+    client.add_container("oom", finished=ago(days=40), exit_code=137, oom_killed=True)
+    client.add_container("dead", status="dead", finished=ago(days=10))
+    client.add_container("created", status="created", created=ago(days=10))
+    plan = plan_for(client)  # unset: failed containers follow older_than (7d)
+    assert names(plan.remove, "container") == ["crashed-old", "created", "dead", "ok-old", "oom"]
+    reasons = {i.name: i.reason for i in plan.remove}
+    assert reasons["crashed-old"] == "exited for 1w, exit code 1"
+    assert reasons["oom"] == "exited for 5w, OOM killed"
+    assert reasons["ok-old"] == "exited for 1w"
+
+    plan = plan_for(client, containers={"failed_older_than": "30d"})
+    assert names(plan.remove, "container") == ["created", "ok-old", "oom"]
+    assert kept_reason(plan, "crashed-old") == "failed (exit code 1), stopped 1w ago (< 4w)"
+    assert kept_reason(plan, "dead") == "failed (dead), stopped 1w ago (< 4w)"
+
+
+def test_failed_older_than_can_be_shorter(client):
+    client.add_container("crashed", finished=ago(days=2), exit_code=2)
+    client.add_container("clean", finished=ago(days=2))
+    plan = plan_for(client, containers={"failed_older_than": "1d"})
+    assert names(plan.remove, "container") == ["crashed"]
+    assert kept_reason(plan, "clean") == "stopped 2d ago (< 1w)"
+
+
 def test_only_labels_allowlist(client):
     client.add_container("ci-job", finished=ago(days=30), labels={"ci": "true"})
     client.add_container("hand-made", finished=ago(days=30))

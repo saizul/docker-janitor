@@ -98,12 +98,19 @@ class FakeClient:
         restart: str = "no",
         volumes: list[str] | None = None,
         networks: list[str] | None = None,
+        exit_code: int = 0,
+        oom_killed: bool = False,
     ) -> Removable:
         attrs = {
             "Name": "/" + name,
             "Created": created or ago(days=60),
             "Image": image,
-            "State": {"Status": status, "FinishedAt": finished or "0001-01-01T00:00:00Z"},
+            "State": {
+                "Status": status,
+                "FinishedAt": finished or "0001-01-01T00:00:00Z",
+                "ExitCode": exit_code,
+                "OOMKilled": oom_killed,
+            },
             "Config": {"Labels": labels or {}},
             "HostConfig": {"RestartPolicy": {"Name": restart}, "NetworkMode": "bridge"},
             "Mounts": [{"Type": "volume", "Name": v} for v in volumes or []],
