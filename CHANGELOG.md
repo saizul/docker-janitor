@@ -16,6 +16,11 @@ All notable changes to this project are documented here. The format follows
   `networks`, `volumes` and `build_cache` without editing the config. It never enables a kind
   the config disables.
 
+### Fixed
+
+- Test suite: the fake Docker timestamps could lie up to 0.12 s in the future, which made
+  age assertions such as `stopped 1d ago` fail at random.
+
 ## [0.1.0] - 2026-11-19
 
 ### Added
