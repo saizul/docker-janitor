@@ -11,8 +11,13 @@ import pytest
 
 
 def ago(days: float = 0, hours: float = 0) -> str:
+    """An RFC 3339 timestamp with nanoseconds, like the Docker API returns.
+
+    Keeps the real microseconds (padded to nanoseconds) so the timestamp is never later
+    than ``now - delta``; a fixed fraction made ages flaky by up to 0.12 s.
+    """
     moment = datetime.now(UTC) - timedelta(days=days, hours=hours)
-    return moment.strftime("%Y-%m-%dT%H:%M:%S.") + "123456789Z"
+    return moment.strftime("%Y-%m-%dT%H:%M:%S.%f") + "789Z"
 
 
 def sha(text: str) -> str:
