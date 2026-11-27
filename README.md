@@ -177,6 +177,7 @@ no file at all, the safe defaults below apply. A full example is in
 | `containers.enabled` / `older_than` | `true` / `7d` | |
 | `containers.statuses` | `[exited, created, dead]` | Subset of those three only |
 | `containers.keep_with_restart_policy` | `true` | Keep stopped containers that have a restart policy |
+| `containers.failed_older_than` | unset (= `older_than`) | Age for containers that failed (non-zero exit code, OOM killed, `dead`), e.g. `30d` to keep crashes longer for debugging |
 | `images.enabled` | `true` | |
 | `images.dangling_older_than` | `1d` | `false` disables dangling cleanup |
 | `images.unused_older_than` | `30d` | `false` disables tagged-image cleanup |

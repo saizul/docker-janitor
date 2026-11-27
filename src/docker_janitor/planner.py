@@ -208,13 +208,18 @@ class Planner:
             reason = self._protected(labels, [name])
             if reason is None and policy.keep_with_restart_policy and restart in _RESTART_KEEP:
                 reason = f"has restart policy {restart}"
-            if reason is None and (age is None or age < policy.older_than):
-                reason = f"stopped {format_duration(age)} ago (< {format_duration(policy.older_than)})"
+            failure = _failure(status, state)
+            threshold = policy.older_than
+            if failure and policy.failed_older_than is not None:
+                threshold = policy.failed_older_than
+            if reason is None and (age is None or age < threshold):
+                what = f"failed ({failure}), stopped" if failure and threshold != policy.older_than else "stopped"
+                reason = f"{what} {format_duration(age)} ago (< {format_duration(threshold)})"
             if reason:
                 item.reason = reason
                 self._plan.keep.append(item)
                 continue
-            item.reason = f"{status} for {format_duration(age)}"
+            item.reason = f"{status} for {format_duration(age)}" + (f", {failure}" if failure else "")
             self._plan.remove.append(item)
             removed.add(container.id)
         return removed
@@ -369,6 +374,18 @@ class Planner:
             estimated_entries=count,
             estimated_size=size,
         )
+
+
+def _failure(status: str, state: dict[str, Any]) -> str | None:
+    """Why a stopped container counts as failed (non-zero exit, OOM kill, dead), or None."""
+    if status == "dead":
+        return "dead"
+    if state.get("OOMKilled"):
+        return "OOM killed"
+    code = state.get("ExitCode")
+    if status == "exited" and isinstance(code, int) and not isinstance(code, bool) and code != 0:
+        return f"exit code {code}"
+    return None
 
 
 def _tags(img: Any) -> list[str]:

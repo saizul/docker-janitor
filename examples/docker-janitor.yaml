@@ -18,6 +18,7 @@ containers:
   older_than: 7d                  # time since the container stopped
   statuses: [exited, created, dead]
   keep_with_restart_policy: true  # a stopped container with restart: always/unless-stopped is kept
+  # failed_older_than: 30d        # keep crashed containers (non-zero exit, OOM killed, dead) longer
 
 images:
   enabled: true

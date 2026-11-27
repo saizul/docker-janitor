@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `containers.failed_older_than` sets a separate age for containers that failed: exited with a
+  non-zero code, killed by the OOM killer, or `dead`. Use it to keep crashed containers (and
+  their logs) longer for debugging. Unset, failed containers use `containers.older_than`.
+  The plan shows the failure in the reason (`exited for 2w, exit code 137`).
 - `--only KINDS` for `plan`, `run` and `daemon` limits a run to some of `containers`, `images`,
   `networks`, `volumes` and `build_cache` without editing the config. It never enables a kind
   the config disables.
